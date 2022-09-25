@@ -1,14 +1,14 @@
-#  coding: utf-8 
+#  coding: utf-8
 import socketserver
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,12 +28,59 @@ import socketserver
 
 
 class MyWebServer(socketserver.BaseRequestHandler):
-    
+
     def handle(self):
         self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        #
-        self.request.sendall(bytearray("OK",'utf-8'))
+        self.data = self.data.decode("utf-8")  # decode from binary
+        self.data = self.data.split(" ")  # make array from spaces
+        print(self.data)
+        if self.data[0] == 'GET':  # only supported method is GET; all else error 405
+            self.handleGET()
+            self.request.sendall(bytearray("OK", 'utf-8'))
+        else:
+            self.request.sendall(
+                bytearray("HTTP/1.1 405 Method Not Allowed\r\n", 'utf-8'))
+
+    def handleGET(self):
+        # if last char is '/', then path is .../index.html
+        if self.data[1][-1] == '/':
+            path = './www'+self.data[1]+'/index.html'
+            contentType = "text/html"
+        # if last 4 chars is 'html', then path is the path
+        elif self.data[1][-4:] == "html":
+            path = './www'+self.data[1]
+            contentType = "text/html"
+        # if last 4 chars is 'html', then path is the path
+        elif self.data[1][-3:] == "css":
+            path = './www'+self.data[1]
+            contentType = "text/css"
+         # invalid path
+        else:
+            header301 = "HTTP/1.1 301 Moved Permanently\r\n"
+            new_location = "Location: " + path + "\r\n"
+            self.request.sendall(bytearray(header301 + new_location, 'utf-8'))
+            return
+            
+        # serve path
+        
+        # make sure path is actually openable
+        try:
+            f = open(path, 'r')
+            content = f.read()
+            f.close()
+            
+        # if not, then 404 status code
+        except:
+            thingsToSend = "HTTP/1.1 404 Not Found\r\n"
+            
+        # if yes, then serve it
+        else:
+            header_200 = "HTTP/1.1 200 OK\r\n"
+            fileType = "Content-Type: " + contentType +"\r\n"
+            contentLen = "Content-Length: " + str(len(content)) + "\r\n\r\n"
+            thingsToSend = header_200 + fileType + contentLen + content
+        finally:
+            self.request.sendall(bytearray(thingsToSend, 'utf-8'))
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
