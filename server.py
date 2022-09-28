@@ -45,6 +45,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
         # if last char is '/', then path is .../index.html
         if self.data[1][-1] == '/':
             path = './www'+self.data[1]+'/index.html' # default to index.html
+            # print(path)
             contentType = "text/html"
         # if last 4 chars is 'html', then path is the path
         elif self.data[1][-4:] == "html":
